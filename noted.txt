@@ -1,0 +1,22 @@
+波特率：150000
+Z60 设备电压不稳定 启动不了，会重复断电启动
+cd /app/sd 
+touch DDpaiDebug 
+识别到这个文件就能开启日志打印
+
+Z60 --黄色接GND，黑色接rx，红色接tx  
+rv1126b_dashcam_dz004_global_config  
+E9项目才有回声消除功能需求   
+军红：---可能只需要改寄存器的几个参数就行
+
+Rockchip_Developer_Guide_MPI_FAQ.pdf
+
+玉海：	数字硅麦，内部芯片， 传到SDI2和SDI3引脚的时候就是数字信号了，电路板上有上拉电阻，调整电阻可以调整左右声道。
+		喇叭硬件回采到了adc0 ----- option2   分别对应原理图的15-17-34页
+
+拷贝两个可执行文件arecord aplay
+./arecord -D hw:1,0 -c 2 -r 16000 -fS16_LE /tmp/record00.wav
+./aplay -Dhw:0,0 -r 16000 -c 2 -f s16_le /data/16000_2.wav
+
+card1是硅麦，只有capture功能
+card0是喇叭，有capture和playback功能。  喇叭哪里来的capture功能啊 --测试发现没有录到声音，是噪声那种空音。
