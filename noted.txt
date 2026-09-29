@@ -20,3 +20,5 @@ Rockchip_Developer_Guide_MPI_FAQ.pdf
 
 card1是硅麦，只有capture功能
 card0是喇叭，有capture和playback功能。  喇叭哪里来的capture功能啊 --测试发现没有录到声音，是噪声那种空音。
+
+amixer -c 1 cset name="PDM0 Gain Volume 0" 127 调大音量
