@@ -1,0 +1,241 @@
+amixer -c 1 cset name="PDM0 Gain Volume 0" 127
+##平时调试改了哪一层的代码就编哪一层（改动到config文件或inc文件需要做clean，比如改了module层某个inc头文件，则需要 dashcam_clean）
+#改了module层
+cd  ddp_build/reference 
+make  dashcam
+#改common层
+cd  ddp_build/reference 
+make   common dashcam
+#改hal层
+cd  ddp_build/reference 
+make  hal dashcam
+
+
+Index: ddp_build/configs/rv1126b_dashcam_de2603_cabin_global_config
+===================================================================
+--- ddp_build/configs/rv1126b_dashcam_de2603_cabin_global_config        (revision 40064)
++++ ddp_build/configs/rv1126b_dashcam_de2603_cabin_global_config        (working copy)
+@@ -724,7 +724,9 @@
+ #
+ # CONFIG_GDC_SUPPORT is not set
+ # CONFIG_LDC_SUPPORT is not set
+-# CONFIG_AISPEECH_SUPPORT is not set
++CONFIG_AISPEECH_SUPPORT=y
++CONFIG_SPEECH_VENDOR_ROCKCHIP=y
++CONFIG_AISPEECH_SUPPORT_LANG_EN=y
+ # CONFIG_HILINK_SUPPORT is not set
+ # CONFIG_CUSTOM_LED_EFFECT_SUPPORT is not set
+ CONFIG_MAINPROCESS_VIDEO_PLAYBACK_SUPPORT=y
+Index: ddp_service/hal/media/rk_media_1126b/include/media_out/rkaudio_preprocess.h
+===================================================================
+--- ddp_service/hal/media/rk_media_1126b/include/media_out/rkaudio_preprocess.h (revision 40064)
++++ ddp_service/hal/media/rk_media_1126b/include/media_out/rkaudio_preprocess.h (working copy)
+@@ -8,7 +8,7 @@
+ #endif
+ #define NUM_CHANNEL                                     8
+ #define NUM_REF_CHANNEL              1
+-#define NUM_DROP_CHANNEL             0
++#define NUM_DROP_CHANNEL             1 //0
+ #define REF_POSITION                            1
+        //static short Array[NUM_SRC_CHANNEL] = { 9,7,5,3,2,4,6,8 }
+        //static short Array[NUM_CHANNEL] = {2, 3, 0, 1}; //src first, ref second
+@@ -549,13 +549,13 @@
+                SKVAECParameter* param = (SKVAECParameter*)calloc(1, sizeof(SKVAECParameter));
+                param->pos = REF_POSITION;
+                param->drop_ref_channel = NUM_DROP_CHANNEL;
+-               param->model_aec_en = 0;        //param->model_aec_en = EN_DELAY;
++               param->model_aec_en = EN_DELAY;//0;     //param->model_aec_en = EN_DELAY;
+                param->delay_len = 0;   //-3588 to compatible old json
+                //param->delay_len = -3588;
+                param->look_ahead = 0;
+                param->Array_list = Array;
+                //mdf
+-               param->filter_len = 2;
++               param->filter_len = 5;
+                //delay
+                param->delay_para = rkaudio_delay_param_init();
+                return (void*)param;
+Index: ddp_service/hal/media/rk_media_1126b/include/rkadk/include/rkadk_param.h
+===================================================================
+--- ddp_service/hal/media/rk_media_1126b/include/rkadk/include/rkadk_param.h    (revision 40064)
++++ ddp_service/hal/media/rk_media_1126b/include/rkadk/include/rkadk_param.h    (working copy)
+@@ -36,7 +36,7 @@
+ /* audio default parameters */
+ /* g711u must be 16K, g711a can be either 8K or 16K */
+ #define AUDIO_SAMPLE_RATE 16000
+-#define AUDIO_DEVICE_CHANNEL 2
++#define AUDIO_DEVICE_CHANNEL 4//2
+ #define AUDIO_CHANNEL 2
+ #define AUDIO_MIC_TYPE 0
+ #define AUDIO_BIT_REAT 64000
+Index: ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_media_ext.c
+===================================================================
+--- ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_media_ext.c       (revision 40064)
++++ ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_media_ext.c       (working copy)
+@@ -18,8 +18,8 @@
+ #include <unistd.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
+-#include <stdlib.h>
+-#include <limits.h>
++#include <stdlib.h>
++#include <limits.h>
+ #include <sys/mount.h>
+ #include "ddp_media_record.h"
+ #include "ddp_media_photo.h"
+@@ -29,8 +29,8 @@
+ #include "ddp_media_speech.h"
+ #include "ddp_media_stream.h"
+ #include "ddp_media_osd.h"
+-#include "ddp_media_display.h"
+-#include "ddp_media_display_multi.h"
++#include "ddp_media_display.h"
++#include "ddp_media_display_multi.h"
+ #include "ddp_media_aov.h"
+ #include "ddp_rk_osd.h"
+ #include "rkadk_param.h"
+@@ -49,8 +49,8 @@
+ #include "hi_product_param.h"
+ #include "ddp_utils.h"
+ #include "ddp_stream_source.h"
+-#include "rk_mpi_amix.h"
+-#include "rk_mpi_vpss.h"
++#include "rk_mpi_amix.h"
++#include "rk_mpi_vpss.h"
+ #include "rk_ui.h"
+
+ #ifdef CONFIG_MODEL_UNIFICATION_SUPPORT
+@@ -365,6 +365,22 @@
+     DDP_system(szCodecSetCmd);
+ #endif
+ #endif
++    MLOGI("rk_mpi_amix_test --control 'SAI2 SDI2 Loopback I2S LR Switch' --value 'Enable' settings run\n");
++    memset(szCodecSetCmd, 0, sizeof(szCodecSetCmd));
++    snprintf(szCodecSetCmd, sizeof(szCodecSetCmd),"%s","rk_mpi_amix_test --control 'SAI2 SDI2 Loopback I2S LR Switch' --value 'Enable'");
++    DDP_system(szCodecSetCmd);
++    MLOGI("rk_mpi_amix_test --control 'SAI2 SDI3 Loopback I2S LR Switch' --value 'Enable' settings run\n");
++    memset(szCodecSetCmd, 0, sizeof(szCodecSetCmd));
++    snprintf(szCodecSetCmd, sizeof(szCodecSetCmd),"%s","rk_mpi_amix_test --control 'SAI2 SDI3 Loopback I2S LR Switch' --value 'Enable'");
++    DDP_system(szCodecSetCmd);
++    MLOGI("rk_mpi_amix_test --control 'SAI2 SDI2 Loopback Switch' --value 'Enable' settings run\n");
++    memset(szCodecSetCmd, 0, sizeof(szCodecSetCmd));
++    snprintf(szCodecSetCmd, sizeof(szCodecSetCmd),"%s","rk_mpi_amix_test --control 'SAI2 SDI2 Loopback Switch' --value 'Enable'");
++    DDP_system(szCodecSetCmd);
++    MLOGI("rk_mpi_amix_test --control 'SAI2 SDI3 Loopback Switch' --value 'Enable' settings run\n");
++    memset(szCodecSetCmd, 0, sizeof(szCodecSetCmd));
++    snprintf(szCodecSetCmd, sizeof(szCodecSetCmd),"%s","rk_mpi_amix_test --control 'SAI2 SDI3 Loopback Switch' --value 'Enable'");
++    DDP_system(szCodecSetCmd);
+ 																				rk_mpi_ai_test --sound_card_name=hw:1,0 --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 1 --output  /app/sd --vqe_enable 1 --vqe_cfg /app/sd/config_aivqe.json
+
+rk_mpi_amix_test --list_contents --card 0
+ #endif
+     return HI_SUCCESS;
+Index: ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_speech.c
+===================================================================
+--- ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_speech.c       (revision 40064)
++++ ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_speech.c       (working copy)
+@@ -2068,6 +2068,13 @@
+ *   @retval  0 success,others failed
+ */
+ static HI_S32 algorithm_audio_preprocess_init(void) {
++    #define SPEECH_CAPTURE_CHANNELS  4
++    #define SPEECH_ALGO_CHANNELS     3
++    #define SPEECH_FRAME_SAMPLES     256
++    #define SPEECH_CAPTURE_BYTES  (SPEECH_CAPTURE_CHANNELS * SPEECH_FRAME_SAMPLES * sizeof(short))
++    #define SPEECH_ALGO_SAMPLES   (SPEECH_ALGO_CHANNELS * SPEECH_FRAME_SAMPLES)
++
++    MLOGI("[rkaudio]-algorithm_audio_preprocess_init-in...\n");
+     if (NULL != g_stAlgorithmAudioCtx.preprocess_handle) {
+         RKADK_LOGW("[rkaudio] preprocess module has been created successfully.\n");
+         return 0;
+@@ -2105,7 +2112,7 @@
+         return -1;
+     }
+     memset(param, 0, sizeof *param);
+-    param->model_en = RKAUDIO_EN_BF;
++    param->model_en = RKAUDIO_EN_BF|RKAUDIO_EN_AEC;
+     param->aec_param = rkaudio_aec_param_init();
+     param->bf_param = rkaudio_preprocess_param_init();
+     ((SKVPreprocessParam *)(param->bf_param))->model_bf_en = EN_Wakeup;
+@@ -2112,7 +2119,8 @@
+     ((SKVPreprocessParam *)(param->bf_param))->num_ref_channel = ref_chan;
+     param->rx_param = rkaudio_rx_param_init();
+ 
+-    one_frame_len = src_chan * AUDIO_FRAME_ALIGN * 2;
++    //one_frame_len = src_chan * AUDIO_FRAME_ALIGN * 2;
++    one_frame_len = SPEECH_CAPTURE_BYTES;  /* 2048 字节 */
+     one_frame_buf = (char *)calloc(1, one_frame_len);
+     if (NULL == one_frame_buf) {
+         RKADK_LOGE("[rkaudio] Failed to apply for a single framebuffer.\n");
+@@ -2119,7 +2127,8 @@
+         goto err;
+     }
+ 
+-    RKADK_LOGI("[rkaudio] fs:%d, bit:%d, src_chan:%d, ref_chan:%d.\n", fs, bit, src_chan, 0);
++    RKADK_LOGI("[rkaudio] fs:%d, bit:%d, src_chan:%d, ref_chan:%d.\n", fs, bit, src_chan, ref_chan);
++    MLOGI("[rkaudio] fs:%d, bit:%d, src_chan:%d, ref_chan:%d.\n", fs, bit, src_chan, ref_chan);
+     preprocess_handle = rkaudio_preprocess_init(fs, bit, src_chan, ref_chan, param);
+     if (NULL == preprocess_handle) {
+         RKADK_LOGE("[rkaudio] preprocess module initialization failed.\n");
+Index: ddp_service/modules/specialmodule/init/src/ddp_init.c
+===================================================================
+--- ddp_service/modules/specialmodule/init/src/ddp_init.c       (revision 40064)
++++ ddp_service/modules/specialmodule/init/src/ddp_init.c       (working copy)
+@@ -1033,6 +1033,7 @@
+     HI_BOOL bSupport = HI_FALSE;
+     s32Ret = DDP_PDT_PARAM_GetValByIndex(PDT_PARAM_E_CFG_FEATURE_SUPPORT_ASR, &bSupport, sizeof(bSupport));
+     HI_APPCOMM_CHECK_EXPR_WITHOUT_RETURN((HI_SUCCESS == s32Ret), "DDP_PDT_PARAM_GetValByIndex");
++    printf("[ASR_CHECK] GetVal ret=%d, bSupport=%d\n",s32Ret, bSupport);
+     if (HI_TRUE == bSupport)
+     {
+         s32Ret = AISPEECH_Init();
+Index: platform/rockchip/rv1106/sdk/project/app/component/rkadk/rkadk/src/stream/rkadk_stream.c
+===================================================================
+--- platform/rockchip/rv1106/sdk/project/app/component/rkadk/rkadk/src/stream/rkadk_stream.c    (revision 40064)
++++ platform/rockchip/rv1106/sdk/project/app/component/rkadk/rkadk/src/stream/rkadk_stream.c    (working copy)
+@@ -853,7 +853,7 @@
+   return 0;
+ }
+ 
+-RKADK_S32 RKADK_STREAM_AudioInit(RKADK_STREAM_AUDIO_ATTR_S *pstAudioAttr,
++RKADK_S32 RKADK_STREAM_AudioInit(RKADK_AUDIO_INFO_S *pstAudioAttr,
+                                  RKADK_MW_PTR *ppHandle) {
+   int ret;
+   RKADK_PARAM_AUDIO_CFG_S *pstAudioParam = NULL;
+Index: platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/common/rkadk_media_comm.c
+===================================================================
+--- platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/common/rkadk_media_comm.c       (revision 40064)
++++ platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/common/rkadk_media_comm.c       (working copy)
+@@ -535,7 +535,8 @@
+   memcpy(stAiVqeConfig.aCfgFile, pVqeCfgPath, strlen(pVqeCfgPath));
+   stAiVqeConfig.s32WorkSampleRate = u32SampleRate;
+   stAiVqeConfig.s32FrameSample = u32SampleRate * s32VqeGapMs / 1000;
+-
++  stAiVqeConfig.s64RecChannelType = 0x03; /* CH0、CH1 */
++  stAiVqeConfig.s64RefChannelType = 0x04; /* CH2 */
+   ret = RK_MPI_AI_SetVqeAttr(s32DevId, s32AiChnId, 0, 0, &stAiVqeConfig);
+   if (ret) {
+     RKADK_LOGE("Ai[%d,%d] SetVqeAttr failed[%x]", s32DevId, s32AiChnId, ret);
+@@ -632,7 +633,11 @@
+       } else {
+         RKADK_LOGE("AI channel[%d] mic type[%d] not support", pstAiAttr->u32ChnCnt, micType);
+       }
+-    } else {
++    } 
++    else if (pstAiAttr->u32ChnCnt == 4) {
++      s32SetTrackMode = AUDIO_TRACK_NORMAL;
++    }
++    else {
+       RKADK_LOGE("AI channel[%d] mic type[%d] not support", pstAiAttr->u32ChnCnt, micType);
+     }
+ 
+@@ -676,6 +681,9 @@
+   case 2:
+     channel = AUDIO_SOUND_MODE_STEREO;
+     break;
++  case 4:
++    channel = AUDIO_SOUND_MODE_4_CHN;
++    break;
+   default:
+     RKADK_LOGE("channel[%d] not support", ch);
+     return AUDIO_SOUND_MODE_BUTT;
