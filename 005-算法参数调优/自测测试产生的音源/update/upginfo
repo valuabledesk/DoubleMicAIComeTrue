@@ -1,0 +1,1 @@
+loader=n,uboot=n,kernel=y,fs=y,appfs=y,config=y,resfs=n,usrcfg=n,logo=n,loader:3919cbb0,uboot:355dc9b9,kernel:a048f9db,fs:8b73eabc,appfs:1b4dce1c,config:f1bf07df,resfs:336fad24,usrcfg:c5886d89,logo:583efaca,model:DE2603,delete;

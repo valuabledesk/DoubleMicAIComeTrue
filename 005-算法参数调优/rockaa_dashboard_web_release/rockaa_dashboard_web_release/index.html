@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RockAA Dashboard</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- ──────── SIDEBAR (shared across both shells) ──────── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">RA</div>
+        <div>
+          <div class="brand-title">RockAA Dashboard</div>
+          <div class="brand-subtitle">Audio VQE Tuning</div>
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-title" data-i18n="function">功能</div>
+        <div class="nav-item active" data-page="tuning"><span data-i18n="live_debug">语音增强调试</span><span class="nav-count">VQE</span></div>
+        <div class="nav-item" data-page="effect-tuning"><span data-i18n="effect_tuning">音效调试</span><span class="nav-count">EQDRC</span></div>
+        <div class="nav-item" data-page="codec"><span data-i18n="codec_debug">声卡校准</span><span class="nav-count">Codec</span></div>
+        <div class="nav-item" data-page="pae"><span data-i18n="pae_title">评估测试</span><span class="nav-count">PAE</span></div>
+        <div class="nav-item" data-page="autotune"><span data-i18n="autotune_title">自动调参</span><span class="nav-count">Tune</span></div>
+        <div class="nav-item" data-page="bridge"><span data-i18n="migration_status">迁移状态</span><span class="nav-count">Bridge</span></div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-title" data-i18n="modules">Modules</div>
+        <div class="nav-item"><span>AEC / BF</span><span class="nav-count">TX</span></div>
+        <div class="nav-item"><span>ANR / AINR / SED</span><span class="nav-count">TX</span></div>
+        <div class="nav-item"><span>AGC / Filter</span><span class="nav-count">TX+RX</span></div>
+        <div class="nav-item"><span>HOWL / EQDRC</span><span class="nav-count">RX</span></div>
+      </div>
+    </aside>
+
+  <main class="shell" id="mainShell" aria-label="主仪表盘">
+    <!-- ──────── CONTENT ──────── -->
+    <section class="content">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle" data-i18n="app_title">上位机实时调参台</h1>
+          <div class="crumb" id="pageCrumb" data-i18n="app_crumb">HTML5 / WebSocket / Canvas</div>
+        </div>
+        <div class="actions" id="topActions">
+          <select class="field" id="languageSelector" onchange="setLanguage(this.value)">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+          </select>
+          <span class="badge warn" id="bridgeBadge">Bridge: 未连接</span>
+          <span class="btn sm" id="versionBadge">参数版本: 未导入</span>
+          <select class="field" id="paramFoldMode" onchange="setGlobalParamFold(this.value)">
+            <option value="collapsed" data-i18n="fold_collapsed">参数收起</option>
+            <option value="expanded" data-i18n="fold_expanded">参数展开</option>
+          </select>
+          <select class="field" id="configHistory" onchange="importConfigHistory(this.value)" style="max-width:180px">
+            <option value="" data-i18n="config_history">配置历史</option>
+          </select>
+          <button class="btn" onclick="importConfig()" data-i18n="import_config">导入配置</button>
+          <button class="btn" onclick="importConfigFromDevice()" data-i18n="import_from_device">设备导入</button>
+          <button class="btn" onclick="exportConfig()" data-i18n="export_config">导出配置</button>
+          <button class="btn" onclick="startOnline()" data-i18n="online_sim">在线仿真</button>
+          <button class="btn" onclick="startOffline()" data-i18n="offline_sim">离线仿真</button>
+          <button class="btn primary" id="btnApply" onclick="applyParams()" data-i18n="apply_params">下发参数</button>
+          <button class="btn" id="btnConnect" onclick="toggleConnect()">连接</button>
+        </div>
+      </header>
+
+      <section class="status-row">
+        <div class="panel">
+          <div class="connect-panel">
+            <div class="seg-group" id="transportMode">
+              <button class="seg active" data-mode="adb" data-i18n="adb">ADB</button>
+              <button class="seg" data-mode="net" data-i18n="network">网络</button>
+              <button class="seg" data-mode="serial" data-i18n="serial">串口</button>
+            </div>
+            <div id="connectFields" style="display:contents">
+              <select class="field" id="adbDevice" style="width:100%"><option data-i18n="detecting_device">检测设备中...</option></select>
+            </div>
+            <div id="netFields" style="display:none">
+              <input class="field" placeholder="192.168.2.218" id="netHost" style="flex:1">
+              <input class="field" placeholder="8012" id="netPort" style="width:72px">
+            </div>
+            <button class="btn primary" id="btnConnSmall" onclick="toggleConnect()">连接</button>
+          </div>
+        </div>
+        <div class="panel panel-body">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:13px;color:var(--muted)" data-i18n="device_status">板端状态</span>
+            <span id="connStatus" style="font-size:12px;font-weight:600;color:var(--muted)">未连接</span>
+          </div>
+          <div class="metrics">
+            <div class="metric"><div class="metric-value" id="metRate">--</div><div class="metric-label" data-i18n="sample_rate">采样率</div></div>
+            <div class="metric"><div class="metric-value" id="metCh">--</div><div class="metric-label" data-i18n="channels">通道</div></div>
+            <div class="metric"><div class="metric-value" id="metLatency">--</div><div class="metric-label" data-i18n="latency">往返</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── tuning page ── -->
+      <section class="workarea" id="pageTuning">
+        <div class="panel">
+          <div class="tabs">
+            <button class="tab active" data-tab="tx" onclick="switchTab(this,'tx')" data-i18n="tx_params">上行 TX 参数</button>
+            <button class="tab" data-tab="rx" onclick="switchTab(this,'rx')" data-i18n="rx_params">下行 RX 参数</button>
+          </div>
+          <div class="device-settings-panel" id="mainDeviceSettings"></div>
+          <div class="param-grid" id="paramGrid">
+            <!-- populated by JS -->
+          </div>
+        </div>
+        <div class="log-split-handle"></div>
+        <div class="log" id="logPanel" style="display:none"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="onlineDialogHost"></div>
+  <div id="codecDialogHost"></div>
+
+  <!-- ──────── PARAM FLOATING WINDOW ──────── -->
+  <div class="dialog-overlay param-window" id="paramDialog">
+    <div class="dialog" style="width:800px;max-height:70vh">
+      <div class="dialog-header param-dialog-header" style="cursor:move">
+        <h2 id="paramDialogTitle">参数调整</h2>
+        <div class="tabs" id="paramWindowTabs">
+          <button class="tab active" data-tab="tx" onclick="switchParamWindowTab(this,'tx')" data-i18n="tx_params">上行 TX 参数</button>
+          <button class="tab" data-tab="rx" onclick="switchParamWindowTab(this,'rx')" data-i18n="rx_params">下行 RX 参数</button>
+        </div>
+        <span style="width:4px"></span>
+        <button class="btn sm param-reset" type="button" data-i18n="reset_params">重置参数</button>
+        <select class="field sm param-update-mode">
+          <option value="manual" data-i18n="manual_update">手动更新</option>
+          <option value="auto" data-i18n="auto_update">自动更新</option>
+        </select>
+        <button class="btn sm param-apply" type="button" data-i18n="update_params">立即更新</button>
+        <span class="param-status" style="font-size:12px;color:var(--muted)"></span>
+        <span style="flex:1"></span>
+        <button class="btn sm" onclick="closeParamWindow()" data-i18n="close">关闭</button>
+      </div>
+      <div class="device-settings-panel compact" id="paramWindowDeviceSettings"></div>
+      <div class="dialog-body" style="padding:8px 12px;overflow-y:auto;min-height:120px;max-height:52vh">
+        <div class="param-grid" id="paramWindowGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────── OFFLINE DIALOG ──────── -->
+  <div class="dialog-overlay" id="offlineDialog">
+    <div class="dialog" style="width:min(1100px,calc(100vw - 48px));max-height:86vh">
+      <div class="dialog-header">
+        <h2 data-i18n="offline_sim">离线仿真</h2>
+        <button class="btn sm" onclick="closeOfflineDialog()" data-i18n="close">关闭</button>
+      </div>
+      <div style="padding:8px 20px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--line)">
+        <select class="field sm" id="offDisplay">
+          <option value="time" data-i18n="time_domain">时域</option>
+          <option value="spectrogram" data-i18n="freq_domain">频域</option>
+        </select>
+        <select class="field sm" id="offTimeline">
+          <option value="sync" data-i18n="synced_zoom">同步</option>
+          <option value="indep" data-i18n="independent_zoom">独立</option>
+        </select>
+        <span style="flex:1"></span>
+        <span id="offSedStatus" style="font-size:12px;font-weight:600;padding:1px 8px;border-radius:10px;color:var(--muted)"></span>
+        <span id="offStatus" style="font-size:12px;color:var(--muted)" data-i18n="ready">就绪</span>
+      </div>
+      <div id="offPerfBar" class="offline-perf-bar">
+        <span id="offPerfCpu">CPU --</span>
+        <span id="offPerfMem">MEM --</span>
+        <span id="offPerfRtf">RTF --</span>
+        <span id="offPerfTime">--</span>
+        <span id="offPerfHint" style="color:#5c6b7a">运行离线仿真后显示性能结果</span>
+      </div>
+      <div class="dialog-body" style="padding:0;min-height:0">
+        <section class="offline-section" data-offline-panel="tx">
+          <div class="offline-section-head">
+            <h3 data-i18n="offline_tx">离线仿真 TX</h3>
+            <button class="btn sm" onclick="importAudioFile('tx')" data-i18n="import_audio">导入音频</button>
+            <button class="btn sm" onclick="runOfflineSim('tx')" data-i18n="run_sim">运行仿真</button>
+            <button class="btn sm" onclick="exportSimResult('tx')" data-i18n="export_result">导出结果</button>
+          </div>
+          <div class="offline-wave-grid">
+            <div class="wave-tab-row"><div class="wave-channel-tabs" id="offTxInputTabs"></div><div class="wf-info" id="offTxInputInfo">Source: --</div></div>
+            <div class="waveform-wrap">
+              <canvas id="offTxInputCanvas"></canvas>
+            </div>
+            <div class="wave-tab-row"><div class="wave-channel-tabs" id="offTxOutputTabs"></div><div class="wf-info" id="offTxOutputInfo">Output: --</div></div>
+            <div class="wave-split-handle" data-split="tx"></div>
+            <div class="waveform-wrap">
+              <canvas id="offTxOutputCanvas"></canvas>
+            </div>
+          </div>
+        </section>
+        <section class="offline-section" data-offline-panel="rx">
+          <div class="offline-section-head">
+            <h3 data-i18n="offline_rx">离线仿真 RX</h3>
+            <button class="btn sm" onclick="importAudioFile('rx')" data-i18n="import_audio">导入音频</button>
+            <button class="btn sm" onclick="runOfflineSim('rx')" data-i18n="run_sim">运行仿真</button>
+            <button class="btn sm" onclick="exportSimResult('rx')" data-i18n="export_result">导出结果</button>
+          </div>
+          <div class="offline-wave-grid">
+            <div class="wave-tab-row"><div class="wave-channel-tabs" id="offRxInputTabs"></div><div class="wf-info" id="offRxInputInfo">Source: --</div></div>
+            <div class="waveform-wrap">
+              <canvas id="offRxInputCanvas"></canvas>
+            </div>
+            <div class="wave-tab-row"><div class="wave-channel-tabs" id="offRxOutputTabs"></div><div class="wf-info" id="offRxOutputInfo">Output: --</div></div>
+            <div class="wave-split-handle" data-split="rx"></div>
+            <div class="waveform-wrap">
+              <canvas id="offRxOutputCanvas"></canvas>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div style="padding:4px 12px 12px">
+        <div class="log-split-handle"></div>
+        <div class="log" id="offLog" style="height:100px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────── RAW/PCM IMPORT DIALOG ──────── -->
+  <div class="dialog-overlay" id="rawImportDialog">
+    <div class="dialog" style="width:min(440px,calc(100vw - 48px));max-height:86vh;grid-template-rows:auto 1fr auto">
+      <div class="dialog-header">
+        <h2 id="rawImportTitle" data-i18n="raw_import_title">导入原始数据</h2>
+        <button class="btn sm" onclick="closeRawImportDialog()" data-i18n="close">关闭</button>
+      </div>
+      <div class="dialog-body" style="padding:16px 20px">
+        <div class="raw-import-grid">
+          <label><span data-i18n="raw_encoding">编码</span>
+            <select class="field sm" id="rawEncoding">
+              <option value="s16le">Signed 16-bit PCM</option>
+              <option value="s8">Unsigned 8-bit PCM</option>
+              <option value="s24le">Signed 24-bit PCM</option>
+              <option value="s32le">Signed 32-bit PCM</option>
+              <option value="f32le">32-bit float</option>
+            </select>
+          </label>
+          <label><span data-i18n="raw_byte_order">字节序</span>
+            <select class="field sm" id="rawByteOrder">
+              <option value="le" data-i18n="raw_little_endian">小端 (Little-endian)</option>
+              <option value="be" data-i18n="raw_big_endian">大端 (Big-endian)</option>
+            </select>
+          </label>
+          <label><span data-i18n="channels">声道</span>
+            <select class="field sm" id="rawChannels">
+              <option value="1">1 (mono)</option>
+              <option value="2">2 (stereo)</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="6">6</option>
+              <option value="8">8</option>
+            </select>
+          </label>
+          <label><span data-i18n="raw_start_offset">开始偏移</span>
+            <span class="raw-input-unit">
+              <input type="number" class="field sm" id="rawStartOffset" value="0" min="0">
+              <span data-i18n="raw_bytes">字节</span>
+            </span>
+          </label>
+          <label><span data-i18n="raw_amount">总计要导入</span>
+            <span class="raw-input-unit">
+              <input type="number" class="field sm" id="rawAmount" value="100" min="1" max="100">
+              <span>%</span>
+            </span>
+          </label>
+          <label><span data-i18n="sample_rate">采样率</span>
+            <select class="field sm" id="rawSampleRate">
+              <option value="8000">8000</option>
+              <option value="16000">16000</option>
+              <option value="24000">24000</option>
+              <option value="32000">32000</option>
+              <option value="44100">44100</option>
+              <option value="48000">48000</option>
+              <option value="96000">96000</option>
+            </select>
+            <span style="font-size:10px;color:var(--muted)">Hz</span>
+          </label>
+        </div>
+        <div class="raw-import-preview" id="rawImportPreview"></div>
+      </div>
+      <div style="padding:10px 20px;display:flex;gap:8px;align-items:center;border-top:1px solid var(--line)">
+        <button class="btn sm" onclick="detectRawParams()" data-i18n="raw_detect">检测</button>
+        <span style="flex:1"></span>
+        <button class="btn sm" onclick="closeRawImportDialog()" data-i18n="cancel">取消</button>
+        <button class="btn sm primary" onclick="confirmRawImport()" data-i18n="import_audio">导入</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────── AUTO TUNING FULL-PAGE VIEW ──────── -->
+  <main class="shell autotune-shell" id="autotuneShell" aria-label="自动调参" hidden>
+    <section class="content">
+      <header class="topbar autotune-topbar">
+        <div>
+          <h1 data-i18n="autotune_title">自动调参</h1>
+          <div class="crumb" data-i18n="autotune_subtitle">Hardware / Eval / Tune</div>
+        </div>
+        <div class="actions">
+          <button class="btn sm autotune-close" type="button" data-i18n="close">关闭</button>
+        </div>
+      </header>
+      <section class="workarea autotune-workarea">
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="hw" data-i18n="autotune_tab_hardware">硬件准入测试</button>
+          <button class="tab-btn" data-tab="eval" data-i18n="autotune_tab_eval">算法评估</button>
+          <button class="tab-btn" data-tab="tune" data-i18n="autotune_tab_tune">自动调参</button>
+        </div>
+        <div class="tab-panel" data-panel="hw">
+          <div class="hw-tab-toolbar">
+            <label class="hw-playback-card">
+              <span data-i18n="autotune_hw_playback_card">播放声卡</span>
+              <input type="number" min="0" max="31" value="1" data-hw-playback-card>
+            </label>
+            <label class="hw-capture-card">
+              <span data-i18n="autotune_hw_capture_card">录音声卡</span>
+              <input type="number" min="0" max="31" value="1" data-hw-capture-card>
+            </label>
+            <label class="hw-capture-channels">
+              <span data-i18n="autotune_hw_capture_channels">录音通道</span>
+              <input type="number" min="1" max="32" value="2" data-hw-capture-channels>
+            </label>
+            <label class="hw-sample-rate">
+              <span data-i18n="autotune_hw_sample_rate">采样率</span>
+              <select data-hw-sample-rate>
+                <option value="48000" selected>48 kHz</option>
+                <option value="16000">16 kHz</option>
+                <option value="44100">44.1 kHz</option>
+              </select>
+            </label>
+            <label class="hw-duration">
+              <span data-i18n="autotune_hw_duration">时长</span>
+              <input type="number" min="1" max="60" value="10" data-hw-duration> s
+            </label>
+            <button class="btn sm" data-cmd="hw.probe-cards"><span data-i18n="autotune_hw_probe_cards">检测声卡</span></button>
+            <pre class="hw-cards-output" hidden></pre>
+          </div>
+          <fieldset class="hw-signals">
+            <legend data-i18n="autotune_hw_signals">标准信号</legend>
+            <div class="hw-signal-row" data-signal="sweep">
+              <span class="hw-signal-name" data-i18n="autotune_hw_signal_sweep">扫频 (sweep)</span>
+              <button class="btn sm hw-collect" data-cmd="hw.collect" data-signal="sweep"><span data-i18n="autotune_hw_collect">自动采集</span></button>
+              <label class="hw-signal-import">
+                <input type="file" accept=".wav,audio/wav">
+                <span class="btn sm" data-i18n="autotune_hw_import">导入</span>
+              </label>
+              <span class="hw-signal-status" data-i18n="autotune_hw_status_pending">未采集</span>
+              <button class="btn sm hw-export" data-cmd="hw.export" data-signal="sweep" disabled><span data-i18n="autotune_hw_export">导出</span></button>
+            </div>
+            <div class="hw-signal-row" data-signal="1k">
+              <span class="hw-signal-name" data-i18n="autotune_hw_signal_1k">1kHz 单频</span>
+              <button class="btn sm hw-collect" data-cmd="hw.collect" data-signal="1k"><span data-i18n="autotune_hw_collect">自动采集</span></button>
+              <label class="hw-signal-import">
+                <input type="file" accept=".wav,audio/wav">
+                <span class="btn sm" data-i18n="autotune_hw_import">导入</span>
+              </label>
+              <span class="hw-signal-status" data-i18n="autotune_hw_status_pending">未采集</span>
+              <button class="btn sm hw-export" data-cmd="hw.export" data-signal="1k" disabled><span data-i18n="autotune_hw_export">导出</span></button>
+            </div>
+            <div class="hw-signal-row" data-signal="whitenoise">
+              <span class="hw-signal-name" data-i18n="autotune_hw_signal_whitenoise">白噪声</span>
+              <button class="btn sm hw-collect" data-cmd="hw.collect" data-signal="whitenoise"><span data-i18n="autotune_hw_collect">自动采集</span></button>
+              <label class="hw-signal-import">
+                <input type="file" accept=".wav,audio/wav">
+                <span class="btn sm" data-i18n="autotune_hw_import">导入</span>
+              </label>
+              <span class="hw-signal-status" data-i18n="autotune_hw_status_pending">未采集</span>
+              <button class="btn sm hw-export" data-cmd="hw.export" data-signal="whitenoise" disabled><span data-i18n="autotune_hw_export">导出</span></button>
+            </div>
+            <div class="hw-signal-row" data-signal="whitenoise_sealed">
+              <span class="hw-signal-name" data-i18n="autotune_hw_signal_whitenoise_sealed">密封白噪声</span>
+              <label class="hw-signal-import">
+                <input type="file" accept=".wav,audio/wav">
+                <span class="btn sm" data-i18n="autotune_hw_import">导入</span>
+              </label>
+              <span class="hw-signal-status" data-i18n="autotune_hw_status_pending">未采集</span>
+              <button class="btn sm hw-export" data-cmd="hw.export" data-signal="whitenoise_sealed" disabled><span data-i18n="autotune_hw_export">导出</span></button>
+            </div>
+            <div class="hw-signal-row" data-signal="silence">
+              <span class="hw-signal-name" data-i18n="autotune_hw_signal_silence">静音</span>
+              <button class="btn sm hw-collect" data-cmd="hw.collect" data-signal="silence"><span data-i18n="autotune_hw_collect">自动采集</span></button>
+              <label class="hw-signal-import">
+                <input type="file" accept=".wav,audio/wav">
+                <span class="btn sm" data-i18n="autotune_hw_import">导入</span>
+              </label>
+              <span class="hw-signal-status" data-i18n="autotune_hw_status_pending">未采集</span>
+              <button class="btn sm hw-export" data-cmd="hw.export" data-signal="silence" disabled><span data-i18n="autotune_hw_export">导出</span></button>
+            </div>
+            <div class="hw-signal-row" style="border-top: 1px dashed var(--line); padding-top: 8px;">
+              <button class="btn sm" data-cmd="hw.export-all"><span data-i18n="autotune_hw_export_all">导出全部</span></button>
+            </div>
+          </fieldset>
+          <div class="hw-tab-toolbar">
+            <button class="btn green autotune-start" data-cmd="hw.run"><span data-i18n="autotune_start">开始硬件准入测试</span></button>
+          </div>
+          <table class="autotune-hw-results">
+            <thead><tr>
+              <th data-i18n="autotune_hw_col_id">编号</th>
+              <th data-i18n="autotune_hw_col_name">测试项</th>
+              <th data-i18n="autotune_hw_col_status">状态</th>
+              <th data-i18n="autotune_hw_col_score">分数</th>
+              <th data-i18n="autotune_hw_col_detail">详细</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+          <pre class="autotune-log"></pre>
+        </div>
+        <div class="tab-panel" data-panel="eval" hidden>
+          <div class="eval-tab-toolbar">
+            <label><span data-i18n="autotune_eval_wav">WAV</span> <input type="file" class="autotune-eval-file" accept=".wav,audio/wav"></label>
+            <label><span data-i18n="autotune_eval_config">Config JSON</span> <input type="file" class="autotune-eval-config-file" accept=".json,application/json"></label>
+            <span class="autotune-eval-config-status"></span>
+            <label><input type="checkbox" class="autotune-eval-no-speechmos" checked> <span data-i18n="autotune_no_speechmos">禁用 AECMOS/DNSMOS</span></label>
+            <button class="btn green autotune-start" data-cmd="eval.run" disabled><span data-i18n="autotune_start">开始</span></button>
+          </div>
+          <div class="autotune-eval-results">
+            <div class="eval-summary-banner" hidden></div>
+            <table class="eval-metrics-table" hidden>
+              <thead>
+                <tr>
+                  <th data-i18n="eval_col_metric">Metric</th>
+                  <th data-i18n="eval_col_value">Value</th>
+                  <th data-i18n="eval_col_threshold">Threshold</th>
+                  <th data-i18n="eval_col_verdict">Verdict</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <canvas class="output-waveform" width="800" height="120"></canvas>
+          </div>
+        </div>
+        <div class="tab-panel" data-panel="tune" hidden>
+          <div class="autotune-cfg-status"></div>
+          <div class="tune-tab-toolbar">
+            <fieldset class="autotune-modules">
+              <legend data-i18n="autotune_modules">调参模块</legend>
+              <label><input type="checkbox" value="aec" checked> AEC</label>
+              <label><input type="checkbox" value="aes"> AES</label>
+              <label><input type="checkbox" value="anr"> ANR</label>
+              <label><input type="checkbox" value="agc"> AGC</label>
+            </fieldset>
+            <label><span data-i18n="autotune_trials">Trial 数量</span> <input type="number" class="autotune-trials" value="50" min="1" max="500"></label>
+            <label><span data-i18n="autotune_mic_channels">MIC 通道</span> <input type="number" class="autotune-mic-ch" value="2" min="1" max="8"></label>
+            <label><span data-i18n="autotune_ref_channels">回采通道</span> <input type="number" class="autotune-ref-ch" value="1" min="0" max="8"></label>
+            <label><span data-i18n="autotune_sample_rate">采样率</span>
+              <select class="autotune-tune-sr">
+                <option value="8000">8 kHz</option>
+                <option value="16000" selected>16 kHz</option>
+                <option value="32000">32 kHz</option>
+                <option value="44100">44.1 kHz</option>
+                <option value="48000">48 kHz</option>
+              </select>
+            </label>
+            <label><span data-i18n="autotune_optimize_mode">优化模式</span>
+              <select class="autotune-optimize-mode">
+                <option value="both" selected data-i18n="autotune_mode_both">两者（规则 + 贝叶斯）</option>
+                <option value="bayesian" data-i18n="autotune_mode_bayesian">仅贝叶斯</option>
+                <option value="iterative" data-i18n="autotune_mode_iterative">仅规则迭代</option>
+              </select>
+            </label>
+            <label><span data-i18n="autotune_max_iter">规则迭代轮数</span> <input type="number" class="autotune-max-iter" value="3" min="1" max="50"></label>
+            <label><span data-i18n="autotune_talk_type">AECMOS 场景</span>
+              <select class="autotune-talk-type">
+                <option value="dt" selected data-i18n="autotune_talk_dt">双讲 (DT)</option>
+                <option value="st" data-i18n="autotune_talk_st">远端单讲 (ST)</option>
+                <option value="nst" data-i18n="autotune_talk_nst">近端单讲 (NST)</option>
+              </select>
+            </label>
+            <label><span data-i18n="autotune_tune_wav">WAV</span> <input type="file" class="autotune-tune-file" accept=".wav,audio/wav"></label>
+            <label><span data-i18n="autotune_tune_config">Config JSON</span> <input type="file" class="autotune-tune-config-file" accept=".json,application/json"></label>
+            <span class="autotune-tune-config-status"></span>
+            <label><input type="checkbox" class="autotune-tune-no-speechmos" checked> <span data-i18n="autotune_no_speechmos">禁用 AECMOS/DNSMOS</span></label>
+            <button class="btn green autotune-start" data-cmd="tune.start" disabled><span data-i18n="autotune_start">开始</span></button>
+            <button class="btn red autotune-stop" data-cmd="tune.stop" disabled><span data-i18n="autotune_stop">停止</span></button>
+          </div>
+          <progress class="autotune-progress" max="100" value="0"></progress>
+          <div class="autotune-best"></div>
+          <pre class="autotune-log" style="height:200px;overflow:auto;background:#111;color:#9ec;padding:8px;font-size:11px"></pre>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- ──────── EFFECT TUNING FULL-PAGE VIEW ──────── -->
+  <main class="shell effect-shell" id="effectShell" aria-label="音效调试" hidden>
+    <section class="content effect-content">
+      <header class="topbar effect-topbar">
+        <div>
+          <h1 data-effect-title>音效调试</h1>
+          <div class="crumb" data-effect-subtitle>EQDRC / Loudness / Binary Tuning</div>
+        </div>
+        <div class="actions">
+          <button class="btn sm" type="button" data-effect-close>关闭</button>
+        </div>
+      </header>
+      <section class="workarea effect-workarea" id="effectTuningRoot"></section>
+    </section>
+  </main>
+  </div><!-- /.app-layout -->
+
+  <!-- hidden file inputs -->
+  <input type="file" id="fileConfig" accept=".json" style="display:none">
+  <input type="file" id="fileAudio" accept=".wav,.pcm" style="display:none">
+  <input type="file" id="fileRxSource" accept=".wav,.pcm" style="display:none">
+  <input type="file" id="fileEffectBin" accept=".bin,application/octet-stream" style="display:none">
+  <input type="file" id="fileEffectSpk" accept=".txt,.csv,text/plain" style="display:none">
+
+<script src="js/app-state.js"></script>
+<script src="js/params.js"></script>
+<script src="js/device-settings.js"></script>
+<script src="js/bridge-client.js"></script>
+<script src="js/waveform.js"></script>
+<script src="js/simulation.js"></script>
+<script src="evaluation/pae_eval/pae-evaluation.js"></script>
+<script src="js/codec.js"></script>
+<script src="js/autotune.js"></script>
+<script src="effect-tuning/effect-tuning.js"></script>
+</body>
+</html>

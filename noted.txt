@@ -1,0 +1,109 @@
+kunpeng平台代码编译命令：
+##全编命令（第一次编译）
+cp ddp_build/configs/rv1126b_dashcam_dz004_global_config   ddp_build/.config
+cd  ddp_build/reference 
+make clean platform_distclean platform_prepare all
+
+
+##平时调试改了哪一层的代码就编哪一层（改动到config文件或inc文件需要做clean，比如改了module层某个inc头文件，则需要 dashcam_clean）
+#改了module层
+cd  ddp_build/reference 
+make  dashcam
+#改common层
+cd  ddp_build/reference 
+make   common dashcam
+#改hal层
+cd  ddp_build/reference 
+
+
+
+
+波特率：150000
+Z60 设备电压不稳定 启动不了，会重复断电启动
+cd /app/sd 
+touch DDpaiDebug 
+识别到这个文件就能开启日志打印
+
+Z60 --黄色接GND，黑色接rx，红色接tx  
+rv1126b_dashcam_dz004_global_config  
+E9项目才有回声消除功能需求   
+军红：---可能只需要改寄存器的几个参数就行
+
+Rockchip_Developer_Guide_MPI_FAQ.pdf
+
+玉海：	数字硅麦，内部芯片， 传到SDI2和SDI3引脚的时候就是数字信号了，电路板上有上拉电阻，调整电阻可以调整左右声道。
+		喇叭硬件回采到了adc0 ----- option2   分别对应原理图的15-17-34页
+
+拷贝两个可执行文件arecord aplay
+./arecord -D hw:1,0 -c 2 -r 16000 -fS16_LE /tmp/record00.wav
+./aplay -Dhw:0,0 -r 16000 -c 2 -f s16_le /data/16000_2.wav
+   
+card1是硅麦，只有capture功能
+card0是喇叭，有capture和playback功能。  喇叭哪里来的capture功能啊 --测试发现没有录到声音，是噪声那种空音。
+
+-------------------------------- 调大音量amixer -c 0 cset name='SAI1 SDI0 Loopback Switch' 1  
+				 amixer -c 0 cset name='DAC Digital Volume' 100
+			amixer -c 1 cset name='PDM0 Gain Volume 0' 120   
+
+./aplay -D hw:0,0 -r 16000 -c 2 -f s16_le /app/sd/mic_ref_raw4.wav
+
+./arecord -D vqe_raw4 -t wav -f S16_LE -r 16000 -c 4 -d 10 /app/sd/mic_ref_raw4.wav
+./arecord -D vqe_capture -t wav -f S16_LE -r 16000 -c 3 -d 10 /app/sd/mic_ref3.wav
+./aplay -D hw:0,0 -r 16000 -c 2 -f s16_le /app/sd/mic_ref3.wav
+
+rk_mpi_ai_test --sound_card_name=vqe_capture --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 1 --output  /app/sd --vqe_enable 2 --vqe_cfg /app/config_aivqe.json
+rk_mpi_ai_test --sound_card_name=vqe_capture --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 1 --output  /app/sd --vqe_enable 0 
+rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 2 --output  /app/sd --vqe_enable 0 
+
+
+./arecord -D vqe_raw4 -t wav -f S16_LE -r 16000 -c 4 -d 3 /app/sd/raw4.wav
+./arecord -D vqe_capture -t wav -f S16_LE -r 16000 -c 3 -d 3 /app/sd/input3.wav
+
+
+rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 2 --output /app/sd --vqe_enable 0 --quit_cnt 100 
+rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 2 --out_rate 16000 --out_ch 1 --output /app/sd --vqe_enable 0 --quit_cnt 100
+rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 1 --output /app/sd --vqe_enable 0 --quit_cnt 100
+rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 3 --output /app/sd --vqe_enable 0 --quit_cnt 100
+rk_mpi_ai_test --sound_card_name=vqe_raw4 --device_rate 16000 --device_ch 4 --out_rate 16000 --out_ch 4 --output /app/sd --vqe_enable 0 --quit_cnt 100
+rk_mpi_ai_test --sound_card_name=vqe_raw4 --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 4 --output /app/sd --vqe_enable 0 --quit_cnt 100
+rk_mpi_ai_test --sound_card_name=vqe_raw4 --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 2 --output /app/sd --vqe_enable 0 --quit_cnt 100
+rk_mpi_ai_test --sound_card_name=vqe_raw4 --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 1 --output /app/sd --vqe_enable 0 --quit_cnt 100
+
+
+成功了  ---device_ch ==1 才不会报错 --out_ch 1要等于1 vqe才能打开
+rk_mpi_ai_test --sound_card_name=vqe_raw4 --device_rate 16000 --device_ch 1 --out_rate 16000 --out_ch 1 --output /app/sd --vqe_enable 0 --quit_cnt 100  
+rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 1 --out_rate 16000 --out_ch 1 --output /app/sd/doublemiccometrue --vqe_enable 2 --vqe_cfg /app/config_aivqe.json 
+
+------------------------           -t wav    
+./aplay -D speaker_playback -t raw -f S16_LE -r 16000 -c 1 /app/sd/doublemiccometrue/cap_out.pcm      
+./aplay -D speaker_playback -t raw -f S16_LE -r 16000 -c 1 /app/sd/doublemiccometrue_vqe/cap_out.pcm
+./aplay -D speaker_playback -t raw -f S16_LE -r 16000 -c 1 /app/sd/vqe_playback/cap_out.pcm
+ ./aplay -D speaker_playback -t raw -f S16_LE -r 16000 -c 1 /app/sd/novqe_playback/cap_out.pcm
+
+./rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 1 --output /app/sd/doublemiccometrue_vqe --vqe_enable 2 --vqe_cfg /app/config_aivqe.json
+./rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 1 --output /app/sd/doublemiccometrue --vqe_enable 0 
+
+
+./rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 1 --output /app/sd/vqe_playback
+ --vqe_enable 2 --vqe_cfg /app/config_aivqe.json
+
+./rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 1 --output /app/sd/novqe_playback --vqe_enable 0
+
+
+如果文件实际包含三通道交织数据，却按单通道播放，可能出现拖慢、低沉和严重失真。
+ ./aplay -D speaker_playback -t raw -f S16_LE -r 16000 -c 1 /app/sd/aec_check/speaker_source.wav
+
+
+rkadk_default_ini_path=/app/rkadk_single/  ./rkadk_stream_test -M audio -I 0 -e pcm -o /app/sd/pcm_error/ai.pcm
+ ./aplay -D speaker_playback -t raw -f S16_LE -r 16000 -c 1 /app/sd/pcm_error/ai.pcm
+
+
+rkadk_default_ini_path=/app/rkadk_single/  ./rkadk_stream_test -M audio -I 0 -o /app/sd/pcm_error/ai.pcm
+
+
+
+
+
+
+
+

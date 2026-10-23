@@ -1,0 +1,284 @@
+svn diff
+Index: ddp_build/configs/rv1126b_dashcam_de2603_cabin_global_config
+===================================================================
+--- ddp_build/configs/rv1126b_dashcam_de2603_cabin_global_config        (revision 40413)
++++ ddp_build/configs/rv1126b_dashcam_de2603_cabin_global_config        (working copy)
+@@ -829,7 +829,9 @@
+ # CONFIG_LOWER_DAC_VOLUME is not set
+ # CONFIG_NIGHT_ENHANCE_SUPPORT is not set
+ # CONFIG_RECORD_MONITOR_TASK_SUPPORT is not set
+-
++CONFIG_doublemicai_E9=y
++CONFIG_AEC_TALKING_MIC_GAIN="26"
++CONFIG_AEC_TALKING_SPEAKER_VOLUME="228"
+ #
+ # PARAM Configuration
+ #
+Index: ddp_build/configs/rv1126b_dashcam_de2603_global_outdoor_config
+===================================================================
+--- ddp_build/configs/rv1126b_dashcam_de2603_global_outdoor_config      (revision 40413)
++++ ddp_build/configs/rv1126b_dashcam_de2603_global_outdoor_config      (working copy)
+@@ -823,7 +823,9 @@
+ # CONFIG_LOWER_DAC_VOLUME is not set
+ # CONFIG_NIGHT_ENHANCE_SUPPORT is not set
+ # CONFIG_RECORD_MONITOR_TASK_SUPPORT is not set
+-
++CONFIG_doublemicai_E9=y
++CONFIG_AEC_TALKING_MIC_GAIN="26"
++CONFIG_AEC_TALKING_SPEAKER_VOLUME="228"
+ #
+ # PARAM Configuration
+ #
+Index: ddp_build/configs/rv1126b_dashcam_de2603_global_quad_config
+===================================================================
+--- ddp_build/configs/rv1126b_dashcam_de2603_global_quad_config (revision 40413)
++++ ddp_build/configs/rv1126b_dashcam_de2603_global_quad_config (working copy)
+@@ -824,7 +824,9 @@
+ # CONFIG_LOWER_DAC_VOLUME is not set
+ # CONFIG_NIGHT_ENHANCE_SUPPORT is not set
+ # CONFIG_RECORD_MONITOR_TASK_SUPPORT is not set
+-
++CONFIG_doublemicai_E9=y
++CONFIG_AEC_TALKING_MIC_GAIN="26"
++CONFIG_AEC_TALKING_SPEAKER_VOLUME="228"
+ #
+ # PARAM Configuration
+ #
+Index: ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_media_ext.c
+===================================================================
+--- ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_media_ext.c       (revision 40413)
++++ ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_media_ext.c       (working copy)
+@@ -371,7 +371,7 @@
+     return HI_SUCCESS;
+ }
+
+-#if defined(CONFIG_AEC_SUPPORT)
++#if defined(CONFIG_AEC_SUPPORT)
+ /*****************************************************************************
+ * Function:      DDP_MEDIA_SetDigiLoopbackMode
+ * Description:   设置回采通路
+@@ -406,14 +406,15 @@
+
+     return HI_SUCCESS;
+ }
+-
++#endif
++#if defined(CONFIG_AEC_SUPPORT)  || defined(CONFIG_doublemicai_E9)
+ /*****************************************************************************
+ * Function:      DDP_MEDIA_SetRemoteTalkAec
+ * Description:   设置对讲回声消除使能
+ * Input:         bEnable : TRUE,使能AEC;FALSE,关闭AEC
+-* Output:        无
++* Output:        无
+ * Return:        成功返回0, 否则返回错误码
+-* Others:        无
++* Others:        无
+
+ * History:
+         date     |    author      |  modify
+@@ -447,6 +448,8 @@
+ }
+ #endif
+
++
++
+ #ifdef CONFIG_SENSORMODE_CHANGE_SUPPORT
+ typedef struct tagMEDIA_S_SENSOR_RES_FMT_QUERY_FN
+ {
+@@ -3063,7 +3066,7 @@
+         date     |    author    |  modify
+      2026/10/16  |  liusilaing  |  新生成函数
+ *****************************************************************************/
++HI_S32 DDP_MEDIA_StartRecordVqe(HI_VOID)
+
+ {
+     return DDP_MEDIA_SetRemoteTalkAec(HI_FALSE);
+Index: ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_muxer.c
+===================================================================
+--- ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_muxer.c        (revision 40413)
++++ ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_muxer.c        (working copy)
+@@ -254,6 +254,13 @@
+     memset(&stAiAttr, 0, sizeof(AIO_ATTR_S));
+     memcpy(stAiAttr.u8CardName, pstAudioParam->ai_audio_node, strlen(pstAudioParam->ai_audio_node));
+     stAiAttr.soundCard.channels = AUDIO_DEVICE_CHANNEL;
++    #if defined(CONFIG_doublemicai_E9)
++    stAiAttr.soundCard.channels = 3;
++    stAiAttr.u8MapOutchn[0][0] = 0;
++    stAiAttr.u8MapOutchn[0][1] = 1;
++    stAiAttr.u8MapOutchn[0][2] = 2;
++    stAiAttr.u8CardName = "vqe_capture";
++    #endif
+     stAiAttr.soundCard.sampleRate = pstAudioParam->samplerate;
+     bytes = RKADK_MEDIA_GetAudioBitWidth(pstAudioParam->bit_width) / 8;
+     stAiAttr.soundCard.bitWidth = pstAudioParam->bit_width;
+Index: ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_player.c
+===================================================================
+--- ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_player.c       (revision 40413)
++++ ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_player.c       (working copy)
+@@ -311,6 +311,11 @@
+     stPlayCfg.bEnableVideo = pstPlayCfg->bEnableVideo;
+     stPlayCfg.pfnPlayerCallback = PlayerEventFn;
+     stPlayCfg.stAudioCfg.u32SpeakerVolume = 100;
++    #if defined(CONFIG_doublemicai_E9)
++    stPlayCfg.stAudioCfg.pSoundCardName = "speaker_playback";
++    stPlayCfg.stAudioCfg.u32AoChannels = 2;
++    stPlayCfg.stAudioCfg.u32AoSampleRate = 16000;
++    #endif
+
+     PLAYER_PARAM_INIT(&stPlayCfg.stFrmInfo);
+     ret = RKADK_PLAYER_Create(ppPlayer, &stPlayCfg);
+Index: platform/rockchip/rv1126b/ddp_custom/prj/de2603/rootfs_priv/etc/asound.conf
+===================================================================
+--- platform/rockchip/rv1126b/ddp_custom/prj/de2603/rootfs_priv/etc/asound.conf (nonexistent)
++++ platform/rockchip/rv1126b/ddp_custom/prj/de2603/rootfs_priv/etc/asound.conf (working copy)
+@@ -0,0 +1,74 @@
++# Initial topology: card 1 = two PDM microphones, card 0 = playback/capture.
++# Verify card numbering, capture channel count and loopback routing on the board.
++# This file does not enable SAI loopback or compensate clock drift between cards.
++
++pcm.vqe_capture_multi {
++    type multi
++    slaves.mic {
++        pcm "hw:1,0"
++        channels 2
++    }
++    slaves.ref {
++        pcm "hw:0,0"
++        channels 2
++    }
++    bindings.0 { slave mic channel 0 }
++    bindings.1 { slave mic channel 1 }
++    bindings.2 { slave ref channel 0 }
++    bindings.3 { slave ref channel 1 }
++}
++
++# Diagnostic stream: [MIC0, MIC1, CARD0_CH0, CARD0_CH1].
++pcm.vqe_raw4 {
++    type plug
++    slave {
++        pcm "vqe_capture_multi"
++        channels 4
++        rate 16000
++        format S16_LE
++    }
++}
++
++# Application stream: [MIC0, MIC1, REF].
++# CARD0_CH1 is an initial assumption, not a verified reference source.
++# If CARD0_CH0 contains the reference, replace ttable.2.3 with ttable.2.2.
++pcm.vqe_capture_route {
++    type route
++    slave {
++        pcm "vqe_capture_multi"
++        channels 4
++    }
++    ttable.0.0 1
++    ttable.1.1 1
++    ttable.2.3 1
++}
++
++pcm.vqe_capture {
++    type plug
++    slave {
++        pcm "vqe_capture_route"
++        channels 3
++        rate 16000
++        format S16_LE
++    }
++}
++
++# Preserve stereo PCM playback on card 0; mono input is converted by plug.
++pcm.speaker_playback {
++    type plug
++    slave {
++        pcm "hw:0,0"
++        channels 2
++    }
++}
++
++pcm.!default {
++    type asym
++    playback.pcm "speaker_playback"
++    capture.pcm "vqe_capture"
++}
++
++ctl.!default {
++    type hw
++    card 0
++}
+
+Property changes on: platform/rockchip/rv1126b/ddp_custom/prj/de2603/rootfs_priv/etc/asound.conf
+___________________________________________________________________
+Added: svn:executable
+## -0,0 +1 ##
++*
+\ No newline at end of property
+Index: platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/common/rkadk_media_comm.c
+===================================================================
+--- platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/common/rkadk_media_comm.c       (revision 40413)
++++ platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/common/rkadk_media_comm.c       (working copy)
+@@ -545,6 +545,11 @@
+     stAiVqeConfig.s32WorkSampleRate = u32SampleRate;
+     stAiVqeConfig.s32FrameSample = u32SampleRate * s32VqeGapMs / 1000;
+   }
++  #if defined(CONFIG_doublemicai_E9)
++  stAiVqeConfig.s64RecChannelType = 0x03; /* CH0、CH1 */
++  stAiVqeConfig.s64RefChannelType = 0x04; /* CH2 */
++  stAiVqeConfig.s64ChannelLayoutType = 0x07;
++  #endif
+
+   ret = RK_MPI_AI_SetVqeAttr(s32DevId, s32AiChnId, 0, 0, &stAiVqeConfig);
+   if (ret) {
+@@ -737,7 +742,13 @@
+         s32SetTrackMode = AUDIO_TRACK_FRONT_LEFT;
+       } else if (micType == RKADK_MIC_TYPE_RIGHT) {
+         s32SetTrackMode = AUDIO_TRACK_FRONT_RIGHT;
+-      } else {
++      }
++      #if defined(CONFIG_doublemicai_E9)
++      else if (micType == RKADK_MIC_TYPE_BOTH) {
++        s32SetTrackMode = AUDIO_TRACK_NORMAL;
++      }
++      #endif
++      else {
+         RKADK_LOGE("AI channel[%d] mic type[%d] not support", pstAiAttr->u32ChnCnt, micType);
+       }
+     } else {
+Index: platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/record/rkadk_record.c
+===================================================================
+--- platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/record/rkadk_record.c   (revision 40413)
++++ platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/record/rkadk_record.c   (working copy)
+@@ -850,10 +850,15 @@
+   memcpy(stAiAttr.u8CardName, pstAudioParam->ai_audio_node,
+          strlen(pstAudioParam->ai_audio_node));
+   stAiAttr.soundCard.channels = AUDIO_DEVICE_CHANNEL;
++  #if defined(CONFIG_doublemicai_E9)
++    stAiAttr.soundCard.channels = 3;
++    stAiAttr.u8MapOutchn[0][0] = 0;
++    stAiAttr.u8MapOutchn[0][1] = 1;
++    stAiAttr.u8MapOutchn[0][2] = 2;
++  #endif
+   stAiAttr.soundCard.sampleRate = pstAudioParam->samplerate;
+   bytes = RKADK_MEDIA_GetAudioBitWidth(pstAudioParam->bit_width) / 8;
+   stAiAttr.soundCard.bitWidth = pstAudioParam->bit_width;
+-
+   stAiAttr.enBitwidth = pstAudioParam->bit_width;
+   stAiAttr.enSamplerate = (AUDIO_SAMPLE_RATE_E)pstAudioParam->samplerate;
+   soundMode = RKADK_AI_GetSoundMode(pstAudioParam->channels);
+Index: platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/stream/rkadk_stream.c
+===================================================================
+--- platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/stream/rkadk_stream.c   (revision 40413)
++++ platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/stream/rkadk_stream.c   (working copy)
+@@ -838,6 +838,12 @@
+   memcpy(pstAiAttr->u8CardName, pstAudioParam->ai_audio_node,
+          strlen(pstAudioParam->ai_audio_node));
+   pstAiAttr->soundCard.channels = AUDIO_DEVICE_CHANNEL;
++   #if defined(CONFIG_doublemicai_E9)
++    stAiAttr.soundCard.channels = 3;
++    stAiAttr.u8MapOutchn[0][0] = 0;
++    stAiAttr.u8MapOutchn[0][1] = 1;
++    stAiAttr.u8MapOutchn[0][2] = 2;
++  #endif
+   pstAiAttr->soundCard.sampleRate = pstAudioParam->samplerate;
+   bytes = RKADK_MEDIA_GetAudioBitWidth(pstAudioParam->bit_width) / 8;
+   pstAiAttr->soundCard.bitWidth = pstAudioParam->bit_width;

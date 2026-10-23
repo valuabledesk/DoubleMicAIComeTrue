@@ -1,0 +1,13 @@
+{
+  "name": "rockaa-dashboard-html",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RockAA Dashboard HTML frontend and local ADB bridge",
+  "scripts": {
+    "start": "node bridge/adb-bridge.js --open",
+    "open": "node bridge/adb-bridge.js --open",
+    "stop": "node bridge/adb-bridge.js --stop",
+    "bridge": "node bridge/adb-bridge.js",
+    "check": "node --check bridge/adb-bridge.js"
+  }
+}

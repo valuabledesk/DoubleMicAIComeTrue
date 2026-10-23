@@ -1,0 +1,19 @@
+{
+  "models": {
+    "rv1103b": {
+      "file": "rv1103b/rkaudio_model_sed_bcd.rknn",
+      "buildPlatforms": ["rv1103b"],
+      "sha256": "efda81f804abdc1ab9054f84eb5e25d03d4c6afadbe7c8c9288c5cb8ed5c2604"
+    },
+    "rv1106_rv1103": {
+      "file": "rv1106_rv1103/rkaudio_model_sed_bcd.rknn",
+      "buildPlatforms": ["rv1106"],
+      "sha256": "7cc875e1076a38f6c8b6a46b097a39746e3b11b16f6feb4c47b5ff68a420ecb9"
+    },
+    "rv1126b": {
+      "file": "rv1126b/rkaudio_model_sed_bcd.rknn",
+      "buildPlatforms": ["rv1126b"],
+      "sha256": "7a4748de8cf9b17fe122a29501c7e2b7ea4c147f5ea6f427e5a9f527cf8d5c0d"
+    }
+  }
+}

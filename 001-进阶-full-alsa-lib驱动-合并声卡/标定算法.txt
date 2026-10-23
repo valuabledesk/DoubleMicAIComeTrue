@@ -1,0 +1,104 @@
+./rk_mpi_ao_test -i ./Sine1k_16k_16b_2ch(1).wav
+ --sound_card_name=speaker_playback --
+device_ch=2 --device_rate=16000 --input_rate=16000 - -input_ch=2
+
+
+./aplay -Dhw:0,0 ./doublemiccometrue/sine -r 16000 -c 2 -f S16_LE
+./aplay -D speaker_playback ./doublemiccometrue/sine -r 16000 -c 2 -f S16_LE
+
+
+
+
+
+100
+150
+175
+200
+225
+
+
+228   -------Rockchip:~/sd # amixer -c 0 cset name='DAC Digital Volume' 228
+				
+numid=47,iface=MIXER,name='DAC Digital Volume'
+  ; type=INTEGER,access=rw---R--,values=2,min=0,max=510,step=0
+  : values=228,228
+  | dBscale-min=-956.25dB,step=3.75dB,mute=0
+ 幅值4.17v  喇叭是6欧 2w
+
+230
+234
+250
+
+1.    export rt_debug_cap_file=/tmp/dbg_capin.pcm
+	
+export rt_dump_skv_inout=true
+2.amixer -c 0 cset name='DAC Digital Volume' 228 
+amixer sset 'ACodec PGA Gain' 26
+3. kill -9 app/bin/main_app  killall AIMain
+ /app/sd/aplay -D speaker_playback ./swp_16k_16b_2ch.wav -r 16000 -c 2 -f S16_LE &
+ /app/sd/rk_mpi_ai_test --sound_card_name=hw:1,0 --device_rate 16000 --device_ch 2 --out_rate 16000 --out_ch 2 --output /tmp 
+ /app/sd/rk_mpi_ai_test --sound_card_name=hw:1,0 --device_rate 16000 --device_ch 2 --out_rate 16000 --out_ch 1 --output /tmp  --vqe_enable 1 --vqe_cfg /app/config_aivqe.json
+ /app/sd/rk_mpi_ai_test --sound_card_name=default --device_rate 16000 --device_ch 3 --out_rate 16000 --out_ch 1 --output /tmp --vqe_enable 2 --vqe_cfg /app/config_aivqe.json
+4./app/sd/aplay -D hw:0,0 -r 16000 -c 2  -f s16_le /tmp/dbg_capin.pcm
+
+如果背后一一个线程在运行的话，这个rk_mpi_ai_test会报错，也可能会录不到声音
+5. mv /tmp/dbg_capin.pcm /app/sd/dbg_capin_2.pcm
+    mv /tmp/dbg-skv-in-2ch-16000.pcm /app/sd/dbg_skv-in-2ch_2.pcm                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                mv /tmp/dbg-skv-out-1ch-16000.pcm /app/sd/dbg_skv-out-1ch_2.pcm                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+
+ZeldaStar:
+
+1、几个MIC + 几个spk或者回采的场景？2mic 以上（不含2mic） 需要通过业务申请授权，AI算法也需要通过业务申请授权。
+2、使用硬件回采还是软件回采？
+3、使用场景是多少采样率？
+4、多少距离拾音，mic阵间距、阵型、尺寸？（比如2MIC间距35mm线麦？4mic半径35mm圆阵）
+5、MIC是ECM(AMIC)还是DMIC？
+6、MIC灵敏度是多少？
+7、SPK是输出多少W？负载多少ohm？  6欧 2w
+8、具体的产品形态？
+9、产品结构设计相关图片信息，比如MIC孔径，还有和SPK的位置、距离、分布等，实际图拍照 或者视频描述。。
+10、硬件原理图和PCB图
+11、在整机装备好的情况下参照文档做标定，先标定codec的最大不失真播放音量， 然后再标定codec mic录音增益
+提供加RC 飞线测试的喇叭的示波器测试图
+https://redmine.rock-chips.com/attachments/download/1927457/Rockchip_Developer_Guide_Audio_Algorithm_Effect_Tuning_CN.pdf
+
+
+12. 标定 mic录音 和 回采，alsa 软件插件增益都是0db， 调整codec的增益使得 不削顶。
+提供测试结果/data/t.wav
+命令参考如下
+16k采样率
+arecord /data/t.wav -c 2 -r 16000 -f s16_le &
+
+
+aplay 1khz-10s-16k.wav
+aplay 20-8kHZ-10s-16K.wav
+
+
+48k采样率
+arecord /data/t.wav -c 2 -r 48000 -f s16_le &
+
+
+aplay 20-20khz-48k-10s.wav
+aplay 1khz-48k-10s.wav
+tinycap /data/t.wav -c 2 -r 48000 -b 16  &
+tinyplay 20-20khz-48k-10s.wav
+tinyplay 1khz-48k-10s.wav
+8k采样率
+tinycap /data/t.wav -c 2 -r 8000 -b 16  &
+tinyplay 20-4kHZ-10s-8K.wav
+tinyplay 1khz-10s-8k.wav
+
+
+13.按照文档标定测试。
+https://redmine.rock-chips.com/attachments/download/2331237/Rockchip_Developer_Guide_Microphone_Array_TEST_CN.pdf
+
+
+测试音箱可以用漫步者MR4
+
+
+测试音源见链接，
+https://redmine.rock-chips.com/documents/57
+3A标定音源4.zip 
+3A标定音源3.zip (16.4 MB)
+3A标定音源2.zip (17.9 MB)
+3A标定音源1.zip (19.2 MB)

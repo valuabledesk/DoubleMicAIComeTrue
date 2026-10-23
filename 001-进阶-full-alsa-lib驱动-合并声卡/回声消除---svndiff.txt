@@ -1,0 +1,239 @@
+~/code-kunpengv2-E9$ svn diff
+Index: ddp_build/configs/rv1126b_dashcam_de2603_cabin_global_config
+===================================================================
+--- ddp_build/configs/rv1126b_dashcam_de2603_cabin_global_config        (revision 40205)
++++ ddp_build/configs/rv1126b_dashcam_de2603_cabin_global_config        (working copy)
+@@ -1137,6 +1137,7 @@
+ CONFIG_DYNAMIC_LIBRKAUDIO=y
+ CONFIG_DYNAMIC_LIBRKAUDIO_COMMON=y
+ # CONFIG_DYNAMIC_LIBRKAUDIO_DETECT is not set
++CONFIG_DYNAMIC_LIBRKAUDIO_VQE=y
+ CONFIG_DYNAMIC_LIBRKDEMUXER=y
+ CONFIG_DYNAMIC_LIBRKFSMK=y
+ CONFIG_DYNAMIC_LIBRKMUXER=y
+Index: ddp_build/library/rockchip/rv1126b/Kconfig
+===================================================================
+--- ddp_build/library/rockchip/rv1126b/Kconfig  (revision 40205)
++++ ddp_build/library/rockchip/rv1126b/Kconfig  (working copy)
+@@ -42,6 +42,9 @@
+ config DYNAMIC_LIBRKAUDIO_DETECT
+        bool "librkaudio_detect"
+
++config DYNAMIC_LIBRKAUDIO_VQE
++       bool "librkaudio_vqe"
++
+ config DYNAMIC_LIBRKDEMUXER
+        bool "librkdemuxer"
+
+Index: ddp_build/library/rockchip/rv1126b/library.mak
+===================================================================
+--- ddp_build/library/rockchip/rv1126b/library.mak      (revision 40205)
++++ ddp_build/library/rockchip/rv1126b/library.mak      (working copy)
+@@ -83,6 +83,11 @@
+ LIBRARY_SO_COPY += librkaudio_detect.so*
+ endif
+
++ifeq ($(CONFIG_DYNAMIC_LIBRKAUDIO_VQE), y)
++LIBRARY_LINK_FLAGS += -lrkaudio_vqe
++LIBRARY_SO_COPY += librkaudio_vqe.so*
++endif
++
+ ifeq ($(CONFIG_DYNAMIC_LIBRKDEMUXER), y)
+ LIBRARY_LINK_FLAGS += -lrkdemuxer
+ LIBRARY_SO_COPY += librkdemuxer.so*
+Index: ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_media_ext.c
+===================================================================
+--- ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_media_ext.c       (revision 40205)
++++ ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_media_ext.c       (working copy)
+@@ -365,7 +365,25 @@
+     DDP_system(szCodecSetCmd);
+ #endif
+ #endif
++    // MLOGI("rk_mpi_amix_test --control 'SAI2 SDI2 Loopback I2S LR Switch' --value 'Enable' settings run\n");
++    // memset(szCodecSetCmd, 0, sizeof(szCodecSetCmd));
++    // snprintf(szCodecSetCmd, sizeof(szCodecSetCmd),"%s","rk_mpi_amix_test --control 'SAI2 SDI2 Loopback I2S LR Switch' --value 'Enable'");
++    // DDP_system(szCodecSetCmd);
++    // MLOGI("rk_mpi_amix_test --control 'SAI2 SDI3 Loopback I2S LR Switch' --value 'Enable' settings run\n");
++    // memset(szCodecSetCmd, 0, sizeof(szCodecSetCmd));
++    // snprintf(szCodecSetCmd, sizeof(szCodecSetCmd),"%s","rk_mpi_amix_test --control 'SAI2 SDI3 Loopback I2S LR Switch' --value 'Enable'");
++    // DDP_system(szCodecSetCmd);
++    // MLOGI("rk_mpi_amix_test --control 'SAI2 SDI2 Loopback Switch' --value 'Enable' settings run\n");
++    // memset(szCodecSetCmd, 0, sizeof(szCodecSetCmd));
++    // snprintf(szCodecSetCmd, sizeof(szCodecSetCmd),"%s","rk_mpi_amix_test --control 'SAI2 SDI2 Loopback Switch' --value 'Enable'");
++    // DDP_system(szCodecSetCmd);
++    // MLOGI("rk_mpi_amix_test --control 'SAI2 SDI3 Loopback Switch' --value 'Enable' settings run\n");
++    // memset(szCodecSetCmd, 0, sizeof(szCodecSetCmd));
++    // snprintf(szCodecSetCmd, sizeof(szCodecSetCmd),"%s","rk_mpi_amix_test --control 'SAI2 SDI3 Loopback Switch' --value 'Enable'");
++    // DDP_system(szCodecSetCmd);
++
+
++
+ #endif
+     return HI_SUCCESS;
+ }
+Index: ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_muxer.c
+===================================================================
+--- ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_muxer.c        (revision 40205)
++++ ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_muxer.c        (working copy)
+@@ -253,7 +253,11 @@
+     // Create AI
+     memset(&stAiAttr, 0, sizeof(AIO_ATTR_S));
+     memcpy(stAiAttr.u8CardName, pstAudioParam->ai_audio_node, strlen(pstAudioParam->ai_audio_node));
+-    stAiAttr.soundCard.channels = AUDIO_DEVICE_CHANNEL;
++    stAiAttr.soundCard.channels = 3;//AUDIO_DEVICE_CHANNEL;
++    stAiAttr.u8MapOutChns[DDP_MUXER_AUDIO_AI_CHN] = 3;
++    stAiAttr.u8MapChns[DDP_MUXER_AUDIO_AI_CHN][0] = 0;
++    stAiAttr.u8MapChns[DDP_MUXER_AUDIO_AI_CHN][1] = 1;
++    stAiAttr.u8MapChns[DDP_MUXER_AUDIO_AI_CHN][2] = 2;
+     stAiAttr.soundCard.sampleRate = pstAudioParam->samplerate;
+     bytes = RKADK_MEDIA_GetAudioBitWidth(pstAudioParam->bit_width) / 8;
+     stAiAttr.soundCard.bitWidth = pstAudioParam->bit_width;
+Index: ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_player.c
+===================================================================
+--- ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_player.c       (revision 40205)
++++ ddp_service/hal/media/rk_media_1126b/rk_ddp_interface/ddp_rk_player.c       (working copy)
+@@ -311,7 +311,10 @@
+     stPlayCfg.bEnableVideo = pstPlayCfg->bEnableVideo;
+     stPlayCfg.pfnPlayerCallback = PlayerEventFn;
+     stPlayCfg.stAudioCfg.u32SpeakerVolume = 100;
+-
++    /*补充明确的播放路由*/
++    stPlayCfg.stAudioCfg.pSoundCard = "speaker_playback";
++    stPlayCfg.stAudioCfg.u32AoChannle = 2;
++    stPlayCfg.stAudioCfg.u32AoSampleRate = 16000;
+     PLAYER_PARAM_INIT(&stPlayCfg.stFrmInfo);
+     ret = RKADK_PLAYER_Create(ppPlayer, &stPlayCfg);
+     if (ret)
+Index: ddp_service/modules/aispeech/src/aispeech.c
+===================================================================
+--- ddp_service/modules/aispeech/src/aispeech.c (revision 40205)
++++ ddp_service/modules/aispeech/src/aispeech.c (working copy)
+@@ -844,7 +844,7 @@
+             MLOGE("match cmd fail.\n");
+         }
+         cJSON_Delete(auth_js);
+-        g_u32AISPEECH_DebugMatch = TRUE;
++       // g_u32AISPEECH_DebugMatch = TRUE;
+     }
+ #endif
+
+Index: platform/rockchip/rv1126b/ddp_custom/prj/de2603/appfs_priv/rkadk_defsetting.ini
+===================================================================
+--- platform/rockchip/rv1126b/ddp_custom/prj/de2603/appfs_priv/rkadk_defsetting.ini     (revision 40205)
++++ platform/rockchip/rv1126b/ddp_custom/prj/de2603/appfs_priv/rkadk_defsetting.ini     (working copy)
+@@ -11,15 +11,15 @@
+
+
+ [audio]
+-ai_audio_node                  = hw:1,0
++ai_audio_node                  = vqe_capture
+ ai_depth                       = 1
+ bit_width                      = 1
+-channels                       = 2
++channels                       = 1
+ mic_type                       = 2
+ samplerate                     = 16000
+ samples_per_frame              = 1024
+ bitrate                        = 64000
+-vqe_mode                       = 2
++vqe_mode                       = 0
+ vqe_config_path                = /app/config_aivqe.json
+ codec_type                     = 9
+
+Index: platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/common/rkadk_media_comm.c
+===================================================================
+--- platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/common/rkadk_media_comm.c       (revision 40205)
++++ platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/common/rkadk_media_comm.c       (working copy)
+@@ -535,7 +535,11 @@
+   memcpy(stAiVqeConfig.aCfgFile, pVqeCfgPath, strlen(pVqeCfgPath));
+   stAiVqeConfig.s32WorkSampleRate = u32SampleRate;
+   stAiVqeConfig.s32FrameSample = u32SampleRate * s32VqeGapMs / 1000;
+-
++  stAiVqeConfig.s64RecChannelType = 0x03; /* CH0、CH1 */
++  stAiVqeConfig.s64RefChannelType = 0x04; /* CH2 */
++  stAiVqeConfig.s64ChannelLayoutType = 0x07;
++  // stAiVqeConfig.s64RefChannelType = 1; // CH0：参考音
++  // stAiVqeConfig.s64RecChannelType = 2; // CH1：麦克风
+   ret = RK_MPI_AI_SetVqeAttr(s32DevId, s32AiChnId, 0, 0, &stAiVqeConfig);
+   if (ret) {
+     RKADK_LOGE("Ai[%d,%d] SetVqeAttr failed[%x]", s32DevId, s32AiChnId, ret);
+@@ -612,8 +616,14 @@
+     }
+
+     if (enMode != RKADK_VQE_MODE_BUTT)
+-      RKADK_MPI_AI_EnableVqe(aiDevId, s32AiChnId, pstAiAttr->enSamplerate, enMode, pVqeCfgPath);
++    {
++      ret = RKADK_MPI_AI_EnableVqe(aiDevId, s32AiChnId, pstAiAttr->enSamplerate, enMode, pVqeCfgPath);
++      if (ret) {
++        RKADK_LOGE("AI[%d, %d] enable vqe failed[%x]", aiDevId, s32AiChnId, ret);
++        // goto exit;
+
++      }
++    }
+     if (pstAiAttr->u32ChnCnt == 2) {
+       if (micType == RKADK_MIC_TYPE_LEFT) {
+         s32SetTrackMode = AUDIO_TRACK_BOTH_LEFT;
+@@ -629,10 +639,17 @@
+         s32SetTrackMode = AUDIO_TRACK_FRONT_LEFT;
+       } else if (micType == RKADK_MIC_TYPE_RIGHT) {
+         s32SetTrackMode = AUDIO_TRACK_FRONT_RIGHT;
+-      } else {
++      } else if (micType == RKADK_MIC_TYPE_BOTH) {
++        s32SetTrackMode = AUDIO_TRACK_NORMAL;
++      }else {
+         RKADK_LOGE("AI channel[%d] mic type[%d] not support", pstAiAttr->u32ChnCnt, micType);
+       }
+-    } else {
++    }
++    // else if(pstAiAttr->u32ChnCnt == 3)
++    // {
++    //     s32SetTrackMode = AUDIO_TRACK_NORMAL;
++    // }
++    else {
+       RKADK_LOGE("AI channel[%d] mic type[%d] not support", pstAiAttr->u32ChnCnt, micType);
+     }
+
+@@ -676,6 +693,9 @@
+   case 2:
+     channel = AUDIO_SOUND_MODE_STEREO;
+     break;
++  case 4:
++    channel = AUDIO_SOUND_MODE_4_CHN;
++    break;
+   default:
+     RKADK_LOGE("channel[%d] not support", ch);
+     return AUDIO_SOUND_MODE_BUTT;
+Index: platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/record/rkadk_record.c
+===================================================================
+--- platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/record/rkadk_record.c   (revision 40205)
++++ platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/record/rkadk_record.c   (working copy)
+@@ -849,7 +849,11 @@
+   memset(&stAiAttr, 0, sizeof(AIO_ATTR_S));
+   memcpy(stAiAttr.u8CardName, pstAudioParam->ai_audio_node,
+          strlen(pstAudioParam->ai_audio_node));
+-  stAiAttr.soundCard.channels = AUDIO_DEVICE_CHANNEL;
++  stAiAttr.soundCard.channels = 3; //AUDIO_DEVICE_CHANNEL;
++  stAiAttr.u8MapOutChns[0] = 3;
++  stAiAttr.u8MapChns[0][0] = 0;
++  stAiAttr.u8MapChns[0][1] = 1;
++  stAiAttr.u8MapChns[0][2] = 2;
+   stAiAttr.soundCard.sampleRate = pstAudioParam->samplerate;
+   bytes = RKADK_MEDIA_GetAudioBitWidth(pstAudioParam->bit_width) / 8;
+   stAiAttr.soundCard.bitWidth = pstAudioParam->bit_width;
+Index: platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/stream/rkadk_stream.c
+===================================================================
+--- platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/stream/rkadk_stream.c   (revision 40205)
++++ platform/rockchip/rv1126b/sdk/project/app/component/rkadk/rkadk/src/stream/rkadk_stream.c   (working copy)
+@@ -837,7 +837,11 @@
+   memset(pstAiAttr, 0, sizeof(AIO_ATTR_S));
+   memcpy(pstAiAttr->u8CardName, pstAudioParam->ai_audio_node,
+          strlen(pstAudioParam->ai_audio_node));
+-  pstAiAttr->soundCard.channels = AUDIO_DEVICE_CHANNEL;
++  pstAiAttr->soundCard.channels = 3; //AUDIO_DEVICE_CHANNEL;
++  pstAiAttr->u8MapOutChns[0] = 3;
++  pstAiAttr->u8MapChns[0][0] = 0;
++  pstAiAttr->u8MapChns[0][1] = 1;
++  pstAiAttr->u8MapChns[0][2] = 2;
+   pstAiAttr->soundCard.sampleRate = pstAudioParam->samplerate;
+   bytes = RKADK_MEDIA_GetAudioBitWidth(pstAudioParam->bit_width) / 8;
+   pstAiAttr->soundCard.bitWidth = pstAudioParam->bit_width;

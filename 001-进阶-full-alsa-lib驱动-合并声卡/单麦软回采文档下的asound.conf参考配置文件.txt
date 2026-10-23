@@ -1,0 +1,49 @@
+RV1126B默认使用full alsa-lib架构
+pcm.!default {
+	type asym
+	playback.pcm "play_plug"
+	capture.pcm "capt_softvol"
+}
+ctl.!default {
+	type hw
+	card 0
+}
+# ---------- Capture ----------
+pcm.cap_multi {
+	type multi
+	slaves.a.pcm "hw:0,0"
+	slaves.a.channels 4
+	bindings.0.slave a
+	bindings.0.channel 0
+	bindings.1.slave a
+	bindings.1.channel 2
+	bindings.2.slave a
+	bindings.2.channel 1
+}
+pcm.capt_plug {
+	type plug
+	slave.pcm "cap_multi"
+}
+pcm.capt_softvol {
+	type softvol
+	slave.pcm "capt_plug"
+	control.name "Master Capture Volume"
+	control.card 0
+	min_dB -51.0
+	max_dB 0.0
+	resolution 101
+}
+# ---------- Playback ----------
+pcm.play_softvol {
+	type softvol
+	slave.pcm "hw:0,0"
+	control.name "Master Playback Volume"
+	control.card 0
+	min_dB -51.0
+	max_dB 0.0
+	resolution 101
+}
+pcm.play_plug {
+	type plug
+	slave.pcm "play_softvol"
+}

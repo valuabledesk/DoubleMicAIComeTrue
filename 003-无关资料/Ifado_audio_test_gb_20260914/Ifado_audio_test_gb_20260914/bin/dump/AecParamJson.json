@@ -1,0 +1,14 @@
+{
+	"project":	"AEC",
+	"aec_init_point_number":	128,
+	"aec_init_sample_rate":	16000,
+	"aec_init_nearend_channel":	1,
+	"aec_init_farend_channel":	1,
+	"aec_config_suppression_mode_freq":	[20, 40, 60, 80, 100, 120],
+	"aec_config_suppression_mode_intensity":	[15, 15, 15, 15, 15, 15, 15],
+	"aec_config_comfort_noise_enable": 0,
+	"aec_config_delay_sample": 0,
+	"aec_option_recursive_ratio":	1,
+	"aec_option_block_num":	8,
+	"aec_option_mode":	0
+}
